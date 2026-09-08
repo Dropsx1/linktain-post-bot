@@ -6,13 +6,16 @@ const axios = require('axios');
 
 const {
   apiError: describeApiError,
-  buttonSpecs,
+  buttonRows,
+  channelPostLink,
   extractUrl,
   isAdmin,
   isCommand,
   millsToUsd,
   normalizeLinks,
   parseAdminIds,
+  parsePostTargets,
+  renderPost,
   titleFrom,
 } = require('./lib/links');
 
@@ -24,6 +27,11 @@ const {
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',
+  POST_CHAT_ID,
+  POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
+  TUTORIAL_LABEL = '\u{1F4DA} Tutorial',
+  DISCORD_LABEL = '\u{1F4AC} Discord',
+  VIP_LABEL = '\u2B50 VIP \u2B50',
   LINKTAIN_API_URL = 'https://linktain.com/api/v1',
   API_TIMEOUT = '20000',
   COOLDOWN_MS = '5000',
@@ -60,12 +68,27 @@ const buttonConfig = {
   tutorialChatId: TUTORIAL_CHAT_ID,
   vipUrl: VIP_URL,
   discordUrl: DISCORD_URL,
+  tutorialLabel: TUTORIAL_LABEL,
+  discordLabel: DISCORD_LABEL,
+  vipLabel: VIP_LABEL,
 };
 
+const postTargets = parsePostTargets(POST_CHAT_ID);
+
+// The same keyboard is used for /start and for the channel post, so the buttons
+// people see in the channel are the ones the operator sees when testing.
 function startKeyboard() {
   return Markup.inlineKeyboard(
-    buttonSpecs(buttonConfig).map((b) => [Markup.button.url(b.label, b.url)])
+    buttonRows(buttonConfig).map((row) => row.map((b) => Markup.button.url(b.label, b.url)))
   );
+}
+
+if (!postTargets.length) {
+  console.warn(
+    'POST_CHAT_ID is not set — created links are previewed back in the chat instead of posted to a channel.'
+  );
+} else {
+  console.log(`posting to ${postTargets.length} target(s): ${postTargets.map((t) => t.raw).join(', ')}`);
 }
 
 function apiError(err) {
@@ -207,11 +230,53 @@ bot.on('message', async (ctx) => {
     const created = await createLink(found.url, title);
     const shortUrl = created.shortUrl || (created.link && created.link.shortUrl);
     if (!shortUrl) throw new Error('Linktain returned no shortUrl');
+
+    const postText = renderPost(POST_TEMPLATE, { name: title, url: shortUrl });
+
+    if (!postTargets.length) {
+      // No channel configured: show the operator exactly what would be posted.
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        status.message_id,
+        undefined,
+        postText,
+        startKeyboard()
+      );
+      return;
+    }
+
+    // One failing target must not stop the others, so each is attempted and
+    // reported independently rather than aborting the whole fan-out.
+    const results = [];
+    for (const target of postTargets) {
+      const extra = { ...startKeyboard() };
+      if (target.threadId) extra.message_thread_id = target.threadId;
+      try {
+        const posted = await ctx.telegram.sendMessage(target.chatId, postText, extra);
+        results.push({
+          target,
+          ok: true,
+          link: channelPostLink(target.chatId, posted.message_id, target.threadId),
+        });
+      } catch (err) {
+        console.error(`[telegram] post to ${target.raw} failed:`, apiError(err));
+        results.push({ target, ok: false, error: apiError(err) });
+      }
+    }
+
+    const okCount = results.filter((r) => r.ok).length;
+    const lines = [`Posted to ${okCount}/${results.length}.`, '', shortUrl, ''];
+    for (const r of results) {
+      lines.push(r.ok ? `\u2705 ${r.target.raw}${r.link ? ` ${r.link}` : ''}` : `\u274C ${r.target.raw} — ${r.error}`);
+    }
+    if (okCount < results.length) {
+      lines.push('', 'A failing target usually means the bot is not an admin there with permission to post.');
+    }
     await ctx.telegram.editMessageText(
       ctx.chat.id,
       status.message_id,
       undefined,
-      [`${title}`, '', shortUrl].join('\n')
+      lines.join('\n')
     );
   } catch (err) {
     console.error('[linktain]', apiError(err));
