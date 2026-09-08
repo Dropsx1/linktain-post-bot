@@ -80,6 +80,7 @@ npm start
 | TUTORIAL_CHAT_ID | fallback used only when `TUTORIAL_URL` is empty |
 | POST_CHAT_ID | publish targets, comma-separated (`@name`, `-100…`, or `-100…:<topicId>` for a forum topic); empty = preview only |
 | POST_TEMPLATE | post body, `{name}` / `{url}` placeholders |
+| LINK_PREVIEW | `off` (default) suppresses Telegram's preview card on text posts; `on` shows it |
 | TUTORIAL_LABEL / DISCORD_LABEL / VIP_LABEL | button captions |
 | LINKTAIN_API_URL | default `https://linktain.com/api/v1` |
 | API_TIMEOUT | request timeout in ms, default `20000` |

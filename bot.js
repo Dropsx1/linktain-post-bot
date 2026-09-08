@@ -30,6 +30,7 @@ const {
   TUTORIAL_CHAT_ID = '-1003495156964',
   POST_CHAT_ID,
   POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
+  LINK_PREVIEW = 'off',
   TUTORIAL_LABEL = '\u{1F4DA} Tutorial',
   DISCORD_LABEL = '\u{1F4AC} Discord',
   VIP_LABEL = '\u2B50 VIP \u2B50',
@@ -75,6 +76,9 @@ const buttonConfig = {
 };
 
 const postTargets = parsePostTargets(POST_CHAT_ID);
+// The reference format is a clean text post; Telegram's own preview card for
+// the short link pushes the content down and advertises the shortener.
+const showLinkPreview = String(LINK_PREVIEW).trim().toLowerCase() === 'on';
 
 // The same keyboard is used for /start and for the channel post, so the buttons
 // people see in the channel are the ones the operator sees when testing.
@@ -266,12 +270,17 @@ bot.on('message', async (ctx) => {
       return;
     }
 
+    // Logged so a missing image can be diagnosed from the deploy logs without
+    // guessing whether the incoming message actually carried a photo.
+    console.log(`[post] ${photoId ? 'photo' : 'text-only'} -> ${postTargets.length} target(s)`);
+
     // One failing target must not stop the others, so each is attempted and
     // reported independently rather than aborting the whole fan-out.
     const results = [];
     for (const target of postTargets) {
       const extra = { ...startKeyboard() };
       if (target.threadId) extra.message_thread_id = target.threadId;
+      if (!photoId) extra.link_preview_options = { is_disabled: !showLinkPreview };
       try {
         const posted = photoId
           ? await ctx.telegram.sendPhoto(target.chatId, photoId, {
