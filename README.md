@@ -42,7 +42,7 @@ npm start
 |---|---|
 | TELEGRAM_TOKEN | required, from [@BotFather](https://t.me/BotFather) |
 | LINKTAIN_API_KEY | required, `lt_…` key from Linktain Settings |
-| ADMIN_USER_IDS | comma-separated Telegram user IDs. **Empty means anyone can spend your API key** |
+| ADMIN_USER_IDS | comma-separated Telegram user IDs, default `7739393155`. **Blank means anyone can spend your API key** |
 | TUTORIAL_URL | tutorial button target |
 | VIP_URL | Stripe payment link |
 | DISCORD_URL | Discord invite |
@@ -60,6 +60,14 @@ API docs: https://linktain.com/developers
 - `/start` menu + buttons
 - `/help`
 - `/stats` recent Linktain views / unlocks / earnings (admins only)
+
+## Access
+
+Link creation and `/stats` are restricted to the IDs in `ADMIN_USER_IDS`, which
+defaults to `7739393155`. Everyone else can still open `/start` and `/help` and use
+the tutorial, VIP and Discord buttons; they just cannot spend the Linktain API key.
+Setting the variable to an empty string removes that restriction entirely, and the
+bot logs a warning at startup when it does.
 
 ## Tests
 

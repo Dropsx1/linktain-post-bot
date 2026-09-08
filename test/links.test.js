@@ -73,6 +73,15 @@ test('isAdmin is open when unconfigured and closed for unknown users', () => {
   assert.equal(locked.size, 2);
 });
 
+test('the shipped default admin id is the only admin', () => {
+  const shipped = parseAdminIds('7739393155');
+  assert.equal(shipped.size, 1);
+  assert.equal(isAdmin(shipped, 7739393155), true);
+  assert.equal(isAdmin(shipped, '7739393155'), true);
+  assert.equal(isAdmin(shipped, 12345), false);
+  assert.equal(isAdmin(shipped, undefined), false);
+});
+
 test('isCommand matches only real command syntax', () => {
   assert.equal(isCommand('/start'), true);
   assert.equal(isCommand('/stats@linktain_bot'), true);

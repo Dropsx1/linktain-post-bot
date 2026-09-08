@@ -19,7 +19,7 @@ const {
 const {
   TELEGRAM_TOKEN,
   LINKTAIN_API_KEY,
-  ADMIN_USER_IDS,
+  ADMIN_USER_IDS = '7739393155',
   VIP_URL = 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01',
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
@@ -46,6 +46,14 @@ const cooldownMs = parseInt(COOLDOWN_MS, 10) || 5000;
 const port = parseInt(PORT, 10) || 3000;
 const apiBase = LINKTAIN_API_URL.replace(/\/+$/, '');
 const adminIds = parseAdminIds(ADMIN_USER_IDS);
+
+// An explicitly blank ADMIN_USER_IDS overrides the default and opens link
+// creation to anyone who can message the bot, spending our Linktain key.
+if (!adminIds.size) {
+  console.warn(
+    'WARNING: ADMIN_USER_IDS is empty — anyone who can message this bot can create links on your Linktain account.'
+  );
+}
 
 const buttonConfig = {
   tutorialUrl: TUTORIAL_URL,
