@@ -6,9 +6,12 @@ Repo: https://github.com/Dropsx1/linktain-post-bot
 
 ## What it does
 
-1. An admin sends a name plus an `http(s)` URL, e.g. `Vixenp https://mega.nz/...`.
+1. An admin sends a name plus an `http(s)` URL, e.g. `Vixenp https://mega.nz/...`,
+   optionally **as the caption on a photo**.
 2. Bot calls `POST https://linktain.com/api/v1/links` to wrap it in a locked link.
-3. Bot publishes the finished post to the channel in `POST_CHAT_ID`:
+3. Bot publishes the finished post to every channel in `POST_CHAT_ID`. When the
+   incoming message carried a photo, the same photo is republished with the post
+   as its caption:
 
 ```
 🌴 NAME: Vixenp
@@ -24,6 +27,10 @@ full-width underneath — while the labels and URLs are configurable.
 
 With `POST_CHAT_ID` empty the bot previews that exact post back to you in the
 chat instead of publishing, which is a safe way to check formatting.
+
+Photos are re-sent by `file_id`, so the image is never re-uploaded. Captions are
+trimmed to Telegram's 1024-character limit. Albums are not supported — send one
+photo carrying the caption.
 
 `POST_CHAT_ID` takes a comma-separated list, so one message can fan out to
 several channels. Append `:<topicId>` to an id to post into a specific forum

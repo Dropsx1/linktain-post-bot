@@ -7,6 +7,7 @@ const axios = require('axios');
 const {
   apiError: describeApiError,
   buttonRows,
+  captionSafe,
   channelPostLink,
   extractUrl,
   isAdmin,
@@ -188,6 +189,11 @@ bot.on('message', async (ctx) => {
   const text = (ctx.message && (ctx.message.text || ctx.message.caption)) || '';
   const isPrivate = Boolean(ctx.chat && ctx.chat.type === 'private');
 
+  // Telegram sends a photo as an array of sizes, largest last. Re-sending that
+  // file_id republishes the same image without re-uploading it.
+  const sizes = (ctx.message && ctx.message.photo) || [];
+  const photoId = sizes.length ? sizes[sizes.length - 1].file_id : null;
+
   // Only skip real command syntax — a forwarded post can start with a slash
   // and still carry the URL we want.
   if (isCommand(text)) {
@@ -235,13 +241,28 @@ bot.on('message', async (ctx) => {
 
     if (!postTargets.length) {
       // No channel configured: show the operator exactly what would be posted.
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        status.message_id,
-        undefined,
-        postText,
-        startKeyboard()
-      );
+      if (photoId) {
+        await ctx.replyWithPhoto(photoId, {
+          caption: captionSafe(postText),
+          ...startKeyboard(),
+        });
+        await ctx.telegram
+          .editMessageText(
+            ctx.chat.id,
+            status.message_id,
+            undefined,
+            ['Preview above. Set POST_CHAT_ID to publish.', '', shortUrl].join('\n')
+          )
+          .catch(() => {});
+      } else {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id,
+          status.message_id,
+          undefined,
+          postText,
+          startKeyboard()
+        );
+      }
       return;
     }
 
@@ -252,7 +273,12 @@ bot.on('message', async (ctx) => {
       const extra = { ...startKeyboard() };
       if (target.threadId) extra.message_thread_id = target.threadId;
       try {
-        const posted = await ctx.telegram.sendMessage(target.chatId, postText, extra);
+        const posted = photoId
+          ? await ctx.telegram.sendPhoto(target.chatId, photoId, {
+              caption: captionSafe(postText),
+              ...extra,
+            })
+          : await ctx.telegram.sendMessage(target.chatId, postText, extra);
         results.push({
           target,
           ok: true,

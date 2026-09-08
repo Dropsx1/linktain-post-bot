@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   apiError,
   buttonRows,
+  captionSafe,
   channelPostLink,
   extractUrl,
   httpUrl,
@@ -181,6 +182,15 @@ test('parsePostTargets handles public handles and empty input', () => {
   assert.deepEqual(parsePostTargets(''), []);
   assert.deepEqual(parsePostTargets('  ,, '), []);
   assert.deepEqual(parsePostTargets(undefined), []);
+});
+
+test('captionSafe leaves short captions alone and trims long ones', () => {
+  assert.equal(captionSafe('hello'), 'hello');
+  assert.equal(captionSafe(''), '');
+  assert.equal(captionSafe(null), '');
+  const long = captionSafe('x'.repeat(1200));
+  assert.equal(long.length, 1024, 'Telegram caps photo captions at 1024');
+  assert.ok(long.endsWith('\u2026'));
 });
 
 test('channelPostLink builds permalinks for public and private channels', () => {
