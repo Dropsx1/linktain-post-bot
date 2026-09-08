@@ -14,6 +14,7 @@ const {
   millsToUsd,
   normalizeLinks,
   parseAdminIds,
+  parsePostTargets,
   renderPost,
   titleFrom,
 } = require('./lib/links');
@@ -72,7 +73,7 @@ const buttonConfig = {
   vipLabel: VIP_LABEL,
 };
 
-const postChatId = String(POST_CHAT_ID || '').trim();
+const postTargets = parsePostTargets(POST_CHAT_ID);
 
 // The same keyboard is used for /start and for the channel post, so the buttons
 // people see in the channel are the ones the operator sees when testing.
@@ -82,10 +83,12 @@ function startKeyboard() {
   );
 }
 
-if (!postChatId) {
+if (!postTargets.length) {
   console.warn(
     'POST_CHAT_ID is not set — created links are previewed back in the chat instead of posted to a channel.'
   );
+} else {
+  console.log(`posting to ${postTargets.length} target(s): ${postTargets.map((t) => t.raw).join(', ')}`);
 }
 
 function apiError(err) {
@@ -230,7 +233,7 @@ bot.on('message', async (ctx) => {
 
     const postText = renderPost(POST_TEMPLATE, { name: title, url: shortUrl });
 
-    if (!postChatId) {
+    if (!postTargets.length) {
       // No channel configured: show the operator exactly what would be posted.
       await ctx.telegram.editMessageText(
         ctx.chat.id,
@@ -242,36 +245,38 @@ bot.on('message', async (ctx) => {
       return;
     }
 
-    let posted;
-    try {
-      posted = await ctx.telegram.sendMessage(postChatId, postText, startKeyboard());
-    } catch (err) {
-      // The link exists and must not be lost just because posting failed.
-      console.error('[telegram] channel post failed:', apiError(err));
-      await ctx.telegram
-        .editMessageText(
-          ctx.chat.id,
-          status.message_id,
-          undefined,
-          [
-            `Link created, but posting to ${postChatId} failed:`,
-            apiError(err),
-            '',
-            'Is the bot an admin of that channel with permission to post?',
-            '',
-            shortUrl,
-          ].join('\n')
-        )
-        .catch(() => {});
-      return;
+    // One failing target must not stop the others, so each is attempted and
+    // reported independently rather than aborting the whole fan-out.
+    const results = [];
+    for (const target of postTargets) {
+      const extra = { ...startKeyboard() };
+      if (target.threadId) extra.message_thread_id = target.threadId;
+      try {
+        const posted = await ctx.telegram.sendMessage(target.chatId, postText, extra);
+        results.push({
+          target,
+          ok: true,
+          link: channelPostLink(target.chatId, posted.message_id, target.threadId),
+        });
+      } catch (err) {
+        console.error(`[telegram] post to ${target.raw} failed:`, apiError(err));
+        results.push({ target, ok: false, error: apiError(err) });
+      }
     }
 
-    const permalink = channelPostLink(postChatId, posted.message_id);
+    const okCount = results.filter((r) => r.ok).length;
+    const lines = [`Posted to ${okCount}/${results.length}.`, '', shortUrl, ''];
+    for (const r of results) {
+      lines.push(r.ok ? `\u2705 ${r.target.raw}${r.link ? ` ${r.link}` : ''}` : `\u274C ${r.target.raw} — ${r.error}`);
+    }
+    if (okCount < results.length) {
+      lines.push('', 'A failing target usually means the bot is not an admin there with permission to post.');
+    }
     await ctx.telegram.editMessageText(
       ctx.chat.id,
       status.message_id,
       undefined,
-      ['Posted.', '', shortUrl, permalink].filter(Boolean).join('\n')
+      lines.join('\n')
     );
   } catch (err) {
     console.error('[linktain]', apiError(err));

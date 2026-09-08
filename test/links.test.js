@@ -14,6 +14,7 @@ const {
   millsToUsd,
   normalizeLinks,
   parseAdminIds,
+  parsePostTargets,
   renderPost,
   titleFrom,
   tutorialLink,
@@ -163,12 +164,36 @@ test('renderPost tolerates missing values', () => {
   assert.equal(renderPost('{name}|{url}', {}), '|');
 });
 
+test('parsePostTargets splits a list and reads optional forum topic ids', () => {
+  assert.deepEqual(
+    parsePostTargets('-1003867575186, -1003691124190 ,-1003712974706:14'),
+    [
+      { chatId: '-1003867575186', threadId: null, raw: '-1003867575186' },
+      { chatId: '-1003691124190', threadId: null, raw: '-1003691124190' },
+      { chatId: '-1003712974706', threadId: 14, raw: '-1003712974706:14' },
+    ]
+  );
+});
+
+test('parsePostTargets handles public handles and empty input', () => {
+  assert.deepEqual(parsePostTargets('@chan'), [{ chatId: '@chan', threadId: null, raw: '@chan' }]);
+  assert.deepEqual(parsePostTargets('@chan:7'), [{ chatId: '@chan', threadId: 7, raw: '@chan:7' }]);
+  assert.deepEqual(parsePostTargets(''), []);
+  assert.deepEqual(parsePostTargets('  ,, '), []);
+  assert.deepEqual(parsePostTargets(undefined), []);
+});
+
 test('channelPostLink builds permalinks for public and private channels', () => {
   assert.equal(channelPostLink('@mychannel', 42), 'https://t.me/mychannel/42');
   assert.equal(channelPostLink('-1003495156964', 42), 'https://t.me/c/3495156964/42');
   assert.equal(channelPostLink('', 42), null);
   assert.equal(channelPostLink('-1003495156964', null), null);
   assert.equal(channelPostLink('not-an-id', 42), null);
+});
+
+test('channelPostLink points inside a forum topic when given one', () => {
+  assert.equal(channelPostLink('-1003712974706', 99, 14), 'https://t.me/c/3712974706/14/99');
+  assert.equal(channelPostLink('@chan', 99, 14), 'https://t.me/chan/14/99');
 });
 
 test('apiError prefers the API message and names timeouts', () => {
