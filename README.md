@@ -83,9 +83,25 @@ Telegram connection; `bot.js` holds the wiring.
 `GET :$PORT/` returns `ok` for platform healthchecks. `SIGINT`/`SIGTERM` stop polling
 and close the healthcheck server before exiting.
 
+## Deploying to Railway
+
+`railway.json` pins the deploy settings: `npm start`, healthcheck on `/`, restart on
+failure, and **one replica**. The replica count is not cosmetic — the bot uses
+Telegram long polling, and a second instance makes Telegram return HTTP 409 to both.
+
+Set these in the Railway service before the first deploy, or the process exits
+immediately on boot:
+
+| Variable | Value |
+|---|---|
+| TELEGRAM_TOKEN | BotFather token |
+| LINKTAIN_API_KEY | `lt_…` key |
+
+`PORT` is injected by Railway; everything else falls back to the defaults in `bot.js`.
+
 ## Not implemented yet
 
 - No persistence: the per-user cooldown lives in memory and resets on redeploy.
 - No retry on a failed Linktain call — the user has to resend the URL.
 - Long polling only; there is no webhook mode, so only one instance may run at a time.
-- No CI workflow, linter, or container/Procfile definition.
+- No linter, and no container image — deploys rely on Nixpacks.
