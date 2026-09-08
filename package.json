@@ -4,7 +4,8 @@
   "description": "Telegram bot that wraps destination URLs with Linktain locked links",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node bot.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"
@@ -13,5 +14,14 @@
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "telegraf": "^4.16.3"
-  }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dropsx1/linktain-post-bot.git"
+  },
+  "files": [
+    "bot.js",
+    "lib/"
+  ]
 }
