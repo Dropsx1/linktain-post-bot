@@ -5,12 +5,24 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
 const {
+  apiError: describeApiError,
+  buttonSpecs,
+  extractUrl,
+  isAdmin,
+  isCommand,
+  millsToUsd,
+  normalizeLinks,
+  parseAdminIds,
+  titleFrom,
+} = require('./lib/links');
+
+const {
   TELEGRAM_TOKEN,
   LINKTAIN_API_KEY,
-  ADMIN_USER_IDS,
-  VIP_URL = 'https://buy.stripe.com/eVq6oIc0o0oF5e51vb5AQ00',
-  DISCORD_URL = 'https://discord.gg/MxmBsxYVWM',
-  TUTORIAL_URL,
+  ADMIN_USER_IDS = '7739393155',
+  VIP_URL = 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01',
+  DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
+  TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',
   LINKTAIN_API_URL = 'https://linktain.com/api/v1',
   API_TIMEOUT = '20000',
@@ -32,31 +44,32 @@ if (!LINKTAIN_API_KEY) {
 const timeoutMs = parseInt(API_TIMEOUT, 10) || 20000;
 const cooldownMs = parseInt(COOLDOWN_MS, 10) || 5000;
 const port = parseInt(PORT, 10) || 3000;
+const apiBase = LINKTAIN_API_URL.replace(/\/+$/, '');
+const adminIds = parseAdminIds(ADMIN_USER_IDS);
 
-const adminIds = new Set(
-  String(ADMIN_USER_IDS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-);
-
-function isAdmin(userId) {
-  if (!adminIds.size) return true;
-  return adminIds.has(String(userId));
+// An explicitly blank ADMIN_USER_IDS overrides the default and opens link
+// creation to anyone who can message the bot, spending our Linktain key.
+if (!adminIds.size) {
+  console.warn(
+    'WARNING: ADMIN_USER_IDS is empty — anyone who can message this bot can create links on your Linktain account.'
+  );
 }
 
-function tutorialLink() {
-  if (TUTORIAL_URL) return TUTORIAL_URL;
-  const raw = String(TUTORIAL_CHAT_ID || '').replace(/^-100/, '');
-  return raw ? `https://t.me/c/${raw}` : 'https://t.me';
-}
+const buttonConfig = {
+  tutorialUrl: TUTORIAL_URL,
+  tutorialChatId: TUTORIAL_CHAT_ID,
+  vipUrl: VIP_URL,
+  discordUrl: DISCORD_URL,
+};
 
 function startKeyboard() {
-  return Markup.inlineKeyboard([
-    [Markup.button.url('Tutorial', tutorialLink())],
-    [Markup.button.url('VIP', VIP_URL)],
-    [Markup.button.url('Official Discord', DISCORD_URL)],
-  ]);
+  return Markup.inlineKeyboard(
+    buttonSpecs(buttonConfig).map((b) => [Markup.button.url(b.label, b.url)])
+  );
+}
+
+function apiError(err) {
+  return describeApiError(err, timeoutMs);
 }
 
 const welcome =
@@ -81,30 +94,18 @@ function remainingCooldown(userId) {
   return left > 0 ? left : 0;
 }
 
-function extractUrl(text) {
-  const match = String(text || '').match(/https?:\/\/[^\s<>"']+/i);
-  if (!match) return null;
-  return match[0].replace(/[),.]+$/, '');
-}
-
-function titleFrom(url, extra) {
-  const cleaned = String(extra || '').trim();
-  if (cleaned) return cleaned.slice(0, 120);
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, '');
-    return host.slice(0, 120) || 'Link';
-  } catch {
-    return 'Link';
+// Prune on write: without it this map grows for the life of the process.
+function startCooldown(userId) {
+  const now = Date.now();
+  for (const [key, at] of cooldowns) {
+    if (now - at >= cooldownMs) cooldowns.delete(key);
   }
-}
-
-function millsToUsd(mills) {
-  return (Number(mills || 0) / 1000).toFixed(2);
+  cooldowns.set(String(userId), now);
 }
 
 async function createLink(destinationUrl, title) {
   const { data } = await axios.post(
-    `${LINKTAIN_API_URL.replace(/\/$/, '')}/links`,
+    `${apiBase}/links`,
     { title, destinationUrl },
     {
       headers: {
@@ -114,26 +115,15 @@ async function createLink(destinationUrl, title) {
       timeout: timeoutMs,
     }
   );
-  return data;
+  return data || {};
 }
 
 async function listLinks() {
-  const { data } = await axios.get(
-    `${LINKTAIN_API_URL.replace(/\/$/, '')}/links`,
-    {
-      headers: { Authorization: `Bearer ${LINKTAIN_API_KEY}` },
-      timeout: timeoutMs,
-    }
-  );
-  return (data && data.links) || [];
-}
-
-function apiError(err) {
-  const body = err.response && err.response.data;
-  if (body && body.error) return String(body.error);
-  if (err.response && err.response.status === 401) return 'Linktain API key rejected';
-  if (err.response && err.response.status === 403) return 'Linktain account not allowed yet';
-  return err.message || 'unknown error';
+  const { data } = await axios.get(`${apiBase}/links`, {
+    headers: { Authorization: `Bearer ${LINKTAIN_API_KEY}` },
+    timeout: timeoutMs,
+  });
+  return normalizeLinks(data);
 }
 
 bot.start(async (ctx) => {
@@ -154,49 +144,68 @@ bot.command('help', async (ctx) => {
 });
 
 bot.command('stats', async (ctx) => {
-  if (!isAdmin(ctx.from.id)) return ctx.reply('Admins only.');
+  if (!isAdmin(adminIds, ctx.from && ctx.from.id)) return ctx.reply('Admins only.');
   try {
     const links = await listLinks();
     if (!links.length) return ctx.reply('No links on this Linktain account yet.');
     const lines = links.slice(0, 10).map((link, i) => {
       const earned = millsToUsd(link.earnedMills);
-      return `${i + 1}. ${link.title}\n${link.shortUrl}\nviews ${link.views || 0} · unlocks ${link.unlocks || 0} · $${earned}`;
+      const title = link.title || 'Untitled';
+      const shortUrl = link.shortUrl || '(no short url)';
+      return `${i + 1}. ${title}\n${shortUrl}\nviews ${link.views || 0} · unlocks ${link.unlocks || 0} · $${earned}`;
     });
     await ctx.reply(lines.join('\n\n'));
   } catch (err) {
+    console.error('[stats]', apiError(err));
     await ctx.reply(`Stats failed: ${apiError(err)}`);
   }
 });
 
 bot.on('message', async (ctx) => {
   const text = (ctx.message && (ctx.message.text || ctx.message.caption)) || '';
-  if (text.startsWith('/')) return;
+  const isPrivate = Boolean(ctx.chat && ctx.chat.type === 'private');
 
-  const url = extractUrl(text);
-  if (!url) {
-    if (ctx.chat && ctx.chat.type === 'private') {
+  // Only skip real command syntax — a forwarded post can start with a slash
+  // and still carry the URL we want.
+  if (isCommand(text)) {
+    if (isPrivate) await ctx.reply('Unknown command. Try /help.', startKeyboard());
+    return;
+  }
+
+  const found = extractUrl(text);
+  if (!found) {
+    if (isPrivate) {
       await ctx.reply('Send a destination URL, or use the buttons.', startKeyboard());
     }
     return;
   }
 
-  if (!isAdmin(ctx.from.id)) {
-    return ctx.reply('You are not allowed to create links with this bot.');
+  const userId = ctx.from && ctx.from.id;
+  if (!isAdmin(adminIds, userId)) {
+    // Quiet in groups: a refusal on every posted link is spam.
+    if (isPrivate) await ctx.reply('You are not allowed to create links with this bot.');
+    return;
   }
 
-  const wait = remainingCooldown(ctx.from.id);
+  const wait = remainingCooldown(userId);
   if (wait > 0) {
     return ctx.reply(`Slow down. Try again in ${Math.ceil(wait / 1000)}s.`);
   }
 
-  const extra = text.replace(url, '').trim();
-  const title = titleFrom(url, extra);
-  const status = await ctx.reply('Creating Linktain link…');
-  cooldowns.set(String(ctx.from.id), Date.now());
+  const title = titleFrom(found.url, text.split(found.raw).join(' '));
+  startCooldown(userId);
+
+  let status;
+  try {
+    status = await ctx.reply('Creating Linktain link…');
+  } catch (err) {
+    console.error('[telegram]', err.message);
+    return;
+  }
 
   try {
-    const created = await createLink(url, title);
-    const shortUrl = created.shortUrl;
+    const created = await createLink(found.url, title);
+    const shortUrl = created.shortUrl || (created.link && created.link.shortUrl);
     if (!shortUrl) throw new Error('Linktain returned no shortUrl');
     await ctx.telegram.editMessageText(
       ctx.chat.id,
@@ -206,6 +215,8 @@ bot.on('message', async (ctx) => {
     );
   } catch (err) {
     console.error('[linktain]', apiError(err));
+    // Don't hold a user in cooldown for our own failure.
+    cooldowns.delete(String(userId));
     await ctx.telegram
       .editMessageText(
         ctx.chat.id,
@@ -217,19 +228,57 @@ bot.on('message', async (ctx) => {
   }
 });
 
-http
-  .createServer((_req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('ok');
-  })
-  .listen(port, () => console.log(`healthcheck on :${port}`));
+bot.catch((err, ctx) => {
+  console.error(`[bot] ${ctx && ctx.updateType} handler failed:`, err);
+});
 
-bot.launch()
-  .then(() => console.log('linktain-post-bot running'))
+const health = http.createServer((_req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('ok');
+});
+
+health.on('error', (err) => {
+  console.error('[health]', err.message);
+  process.exit(1);
+});
+
+health.listen(port, () => console.log(`healthcheck on :${port}`));
+
+let running = false;
+
+// launch() settles only once polling stops, so the "started" log and the
+// command registration have to run from the onLaunch callback, not .then().
+bot
+  .launch(() => {
+    running = true;
+    console.log('linktain-post-bot running');
+    bot.telegram
+      .setMyCommands([
+        { command: 'start', description: 'Menu and buttons' },
+        { command: 'help', description: 'How to use the bot' },
+        { command: 'stats', description: 'Recent link totals' },
+      ])
+      .catch((err) => console.error('[telegram] setMyCommands:', err.message));
+  })
   .catch((err) => {
     console.error(err);
     process.exit(1);
   });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+function shutdown(signal) {
+  console.log(`shutting down (${signal})`);
+  // stop() throws if the bot never finished launching.
+  if (running) {
+    try {
+      bot.stop(signal);
+    } catch (err) {
+      console.error('[bot] stop:', err.message);
+    }
+    running = false;
+  }
+  health.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));

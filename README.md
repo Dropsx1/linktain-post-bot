@@ -14,11 +14,16 @@ Repo: https://github.com/Dropsx1/linktain-post-bot
 
 | Button | Target |
 |---|---|
-| Tutorial | Telegram chat `-1003495156964` |
-| VIP | https://buy.stripe.com/eVq6oIc0o0oF5e51vb5AQ00 |
-| Official Discord | https://discord.gg/MxmBsxYVWM |
+| Access Tutorial | https://t.me/linktaintutorail |
+| VIP Access | https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01 |
+| Discord | https://discord.gg/bgnQtMeucK |
 
-`https://t.me/c/3495156964` only works for people already in that chat. Set `TUTORIAL_URL` to a `t.me/+` invite for new users.
+All three are overridable with `TUTORIAL_URL`, `VIP_URL` and `DISCORD_URL`. A button
+whose URL is malformed is dropped from the keyboard rather than failing the whole
+`/start` reply.
+
+If `TUTORIAL_URL` is left empty the bot falls back to `TUTORIAL_CHAT_ID` and builds a
+`https://t.me/c/…` link, which only opens for people already in that chat.
 
 ## Setup
 
@@ -35,13 +40,18 @@ npm start
 
 | Name | Notes |
 |---|---|
-| TELEGRAM_TOKEN | from [@BotFather](https://t.me/BotFather) |
-| LINKTAIN_API_KEY | `lt_…` key from Linktain Settings |
-| ADMIN_USER_IDS | optional comma-separated Telegram user IDs |
+| TELEGRAM_TOKEN | required, from [@BotFather](https://t.me/BotFather) |
+| LINKTAIN_API_KEY | required, `lt_…` key from Linktain Settings |
+| ADMIN_USER_IDS | comma-separated Telegram user IDs, default `7739393155`. **Blank means anyone can spend your API key** |
+| TUTORIAL_URL | tutorial button target |
 | VIP_URL | Stripe payment link |
 | DISCORD_URL | Discord invite |
-| TUTORIAL_CHAT_ID | `-1003495156964` |
-| TUTORIAL_URL | optional invite URL |
+| TUTORIAL_CHAT_ID | fallback used only when `TUTORIAL_URL` is empty |
+| LINKTAIN_API_URL | default `https://linktain.com/api/v1` |
+| API_TIMEOUT | request timeout in ms, default `20000` |
+| COOLDOWN_MS | per-user cooldown between links, default `5000` |
+| PORT | healthcheck port, default `3000` |
+| WELCOME_TEXT | optional override for the `/start` body |
 
 API docs: https://linktain.com/developers
 
@@ -49,4 +59,49 @@ API docs: https://linktain.com/developers
 
 - `/start` menu + buttons
 - `/help`
-- `/stats` recent Linktain views / unlocks / earnings
+- `/stats` recent Linktain views / unlocks / earnings (admins only)
+
+## Access
+
+Link creation and `/stats` are restricted to the IDs in `ADMIN_USER_IDS`, which
+defaults to `7739393155`. Everyone else can still open `/start` and `/help` and use
+the tutorial, VIP and Discord buttons; they just cannot spend the Linktain API key.
+Setting the variable to an empty string removes that restriction entirely, and the
+bot logs a warning at startup when it does.
+
+## Tests
+
+```bash
+npm test
+```
+
+Pure helpers live in `lib/links.js` so they can be tested without opening a
+Telegram connection; `bot.js` holds the wiring.
+
+## Operations
+
+`GET :$PORT/` returns `ok` for platform healthchecks. `SIGINT`/`SIGTERM` stop polling
+and close the healthcheck server before exiting.
+
+## Deploying to Railway
+
+`railway.json` pins the deploy settings: `npm start`, healthcheck on `/`, restart on
+failure, and **one replica**. The replica count is not cosmetic — the bot uses
+Telegram long polling, and a second instance makes Telegram return HTTP 409 to both.
+
+Set these in the Railway service before the first deploy, or the process exits
+immediately on boot:
+
+| Variable | Value |
+|---|---|
+| TELEGRAM_TOKEN | BotFather token |
+| LINKTAIN_API_KEY | `lt_…` key |
+
+`PORT` is injected by Railway; everything else falls back to the defaults in `bot.js`.
+
+## Not implemented yet
+
+- No persistence: the per-user cooldown lives in memory and resets on redeploy.
+- No retry on a failed Linktain call — the user has to resend the URL.
+- Long polling only; there is no webhook mode, so only one instance may run at a time.
+- No linter, and no container image — deploys rely on Nixpacks.
