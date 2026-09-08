@@ -6,13 +6,15 @@ const axios = require('axios');
 
 const {
   apiError: describeApiError,
-  buttonSpecs,
+  buttonRows,
+  channelPostLink,
   extractUrl,
   isAdmin,
   isCommand,
   millsToUsd,
   normalizeLinks,
   parseAdminIds,
+  renderPost,
   titleFrom,
 } = require('./lib/links');
 
@@ -24,6 +26,11 @@ const {
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',
+  POST_CHAT_ID,
+  POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
+  TUTORIAL_LABEL = '\u2139\uFE0F Tutorial',
+  DISCORD_LABEL = '\u{1F4AC} Discord',
+  VIP_LABEL = '\u2B50 VIP \u2B50',
   LINKTAIN_API_URL = 'https://linktain.com/api/v1',
   API_TIMEOUT = '20000',
   COOLDOWN_MS = '5000',
@@ -60,11 +67,24 @@ const buttonConfig = {
   tutorialChatId: TUTORIAL_CHAT_ID,
   vipUrl: VIP_URL,
   discordUrl: DISCORD_URL,
+  tutorialLabel: TUTORIAL_LABEL,
+  discordLabel: DISCORD_LABEL,
+  vipLabel: VIP_LABEL,
 };
 
+const postChatId = String(POST_CHAT_ID || '').trim();
+
+// The same keyboard is used for /start and for the channel post, so the buttons
+// people see in the channel are the ones the operator sees when testing.
 function startKeyboard() {
   return Markup.inlineKeyboard(
-    buttonSpecs(buttonConfig).map((b) => [Markup.button.url(b.label, b.url)])
+    buttonRows(buttonConfig).map((row) => row.map((b) => Markup.button.url(b.label, b.url)))
+  );
+}
+
+if (!postChatId) {
+  console.warn(
+    'POST_CHAT_ID is not set — created links are previewed back in the chat instead of posted to a channel.'
   );
 }
 
@@ -207,11 +227,51 @@ bot.on('message', async (ctx) => {
     const created = await createLink(found.url, title);
     const shortUrl = created.shortUrl || (created.link && created.link.shortUrl);
     if (!shortUrl) throw new Error('Linktain returned no shortUrl');
+
+    const postText = renderPost(POST_TEMPLATE, { name: title, url: shortUrl });
+
+    if (!postChatId) {
+      // No channel configured: show the operator exactly what would be posted.
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        status.message_id,
+        undefined,
+        postText,
+        startKeyboard()
+      );
+      return;
+    }
+
+    let posted;
+    try {
+      posted = await ctx.telegram.sendMessage(postChatId, postText, startKeyboard());
+    } catch (err) {
+      // The link exists and must not be lost just because posting failed.
+      console.error('[telegram] channel post failed:', apiError(err));
+      await ctx.telegram
+        .editMessageText(
+          ctx.chat.id,
+          status.message_id,
+          undefined,
+          [
+            `Link created, but posting to ${postChatId} failed:`,
+            apiError(err),
+            '',
+            'Is the bot an admin of that channel with permission to post?',
+            '',
+            shortUrl,
+          ].join('\n')
+        )
+        .catch(() => {});
+      return;
+    }
+
+    const permalink = channelPostLink(postChatId, posted.message_id);
     await ctx.telegram.editMessageText(
       ctx.chat.id,
       status.message_id,
       undefined,
-      [`${title}`, '', shortUrl].join('\n')
+      ['Posted.', '', shortUrl, permalink].filter(Boolean).join('\n')
     );
   } catch (err) {
     console.error('[linktain]', apiError(err));

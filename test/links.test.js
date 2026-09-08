@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 
 const {
   apiError,
-  buttonSpecs,
+  buttonRows,
+  channelPostLink,
   extractUrl,
   httpUrl,
   isAdmin,
@@ -13,6 +14,7 @@ const {
   millsToUsd,
   normalizeLinks,
   parseAdminIds,
+  renderPost,
   titleFrom,
   tutorialLink,
 } = require('../lib/links');
@@ -22,6 +24,9 @@ const config = {
   tutorialChatId: '-1003495156964',
   vipUrl: 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01',
   discordUrl: 'https://discord.gg/bgnQtMeucK',
+  tutorialLabel: 'Tutorial',
+  discordLabel: 'Discord',
+  vipLabel: 'VIP',
 };
 
 test('httpUrl accepts http(s) and rejects anything else', () => {
@@ -114,21 +119,56 @@ test('tutorialLink prefers the public invite over the private chat id', () => {
   assert.equal(tutorialLink({}), 'https://t.me');
 });
 
-test('buttonSpecs builds the three configured buttons', () => {
-  const specs = buttonSpecs(config);
-  assert.deepEqual(specs, [
-    { label: 'Access Tutorial', url: 'https://t.me/linktaintutorail' },
-    { label: 'VIP Access', url: 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01' },
-    { label: 'Discord', url: 'https://discord.gg/bgnQtMeucK' },
+test('buttonRows puts Tutorial and Discord side by side with VIP underneath', () => {
+  assert.deepEqual(buttonRows(config), [
+    [
+      { label: 'Tutorial', url: 'https://t.me/linktaintutorail' },
+      { label: 'Discord', url: 'https://discord.gg/bgnQtMeucK' },
+    ],
+    [{ label: 'VIP', url: 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01' }],
   ]);
 });
 
-test('buttonSpecs drops a malformed url instead of breaking the keyboard', () => {
-  const specs = buttonSpecs({ ...config, vipUrl: 'not-a-url' });
+test('buttonRows drops a malformed url without breaking the keyboard', () => {
+  const rows = buttonRows({ ...config, discordUrl: 'not-a-url' });
   assert.deepEqual(
-    specs.map((b) => b.label),
-    ['Access Tutorial', 'Discord']
+    rows.map((r) => r.map((b) => b.label)),
+    [['Tutorial'], ['VIP']]
   );
+});
+
+test('buttonRows drops a row that ends up empty', () => {
+  const rows = buttonRows({ ...config, vipUrl: 'javascript:alert(1)' });
+  assert.deepEqual(
+    rows.map((r) => r.map((b) => b.label)),
+    [['Tutorial', 'Discord']]
+  );
+});
+
+test('renderPost fills the template', () => {
+  assert.equal(
+    renderPost('\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}', {
+      name: 'Vixenp',
+      url: 'https://lktn.co/abc',
+    }),
+    '\u{1F334} NAME: Vixenp\n\u{1F4E6} Mega: https://lktn.co/abc'
+  );
+});
+
+test('renderPost does not treat $& in a value as a replacement pattern', () => {
+  assert.equal(renderPost('{name}|{url}', { name: 'a$&b', url: 'https://x.test/$`' }), 'a$&b|https://x.test/$`');
+});
+
+test('renderPost tolerates missing values', () => {
+  assert.equal(renderPost('{name}|{url}', {}), '|');
+});
+
+test('channelPostLink builds permalinks for public and private channels', () => {
+  assert.equal(channelPostLink('@mychannel', 42), 'https://t.me/mychannel/42');
+  assert.equal(channelPostLink('-1003495156964', 42), 'https://t.me/c/3495156964/42');
+  assert.equal(channelPostLink('', 42), null);
+  assert.equal(channelPostLink('-1003495156964', null), null);
+  assert.equal(channelPostLink('not-an-id', 42), null);
 });
 
 test('apiError prefers the API message and names timeouts', () => {

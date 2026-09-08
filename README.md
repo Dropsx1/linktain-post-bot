@@ -6,9 +6,28 @@ Repo: https://github.com/Dropsx1/linktain-post-bot
 
 ## What it does
 
-1. User sends an `http(s)` URL (optional title text can sit next to it).
-2. Bot calls `POST https://linktain.com/api/v1/links`.
-3. Bot replies with the Linktain short URL.
+1. An admin sends a name plus an `http(s)` URL, e.g. `Vixenp https://mega.nz/...`.
+2. Bot calls `POST https://linktain.com/api/v1/links` to wrap it in a locked link.
+3. Bot publishes the finished post to the channel in `POST_CHAT_ID`:
+
+```
+🌴 NAME: Vixenp
+📦 Mega: https://lktn.co/qCJChKywd2Bk
+
+[ ℹ️ Tutorial ]  [ 💬 Discord ]
+[     ⭐ VIP ⭐     ]
+```
+
+The body comes from `POST_TEMPLATE` (`{name}` and `{url}` placeholders). The
+button layout is fixed — Tutorial and Discord share the top row, VIP sits
+full-width underneath — while the labels and URLs are configurable.
+
+With `POST_CHAT_ID` empty the bot previews that exact post back to you in the
+chat instead of publishing, which is a safe way to check formatting.
+
+The bot must be an **admin of the target channel** with permission to post. If
+it isn't, the link is still created and returned to you with the error, so
+nothing is lost.
 
 `/start` buttons:
 
@@ -47,6 +66,9 @@ npm start
 | VIP_URL | Stripe payment link |
 | DISCORD_URL | Discord invite |
 | TUTORIAL_CHAT_ID | fallback used only when `TUTORIAL_URL` is empty |
+| POST_CHAT_ID | channel to publish to (`@name` or `-100…`); empty = preview only |
+| POST_TEMPLATE | post body, `{name}` / `{url}` placeholders |
+| TUTORIAL_LABEL / DISCORD_LABEL / VIP_LABEL | button captions |
 | LINKTAIN_API_URL | default `https://linktain.com/api/v1` |
 | API_TIMEOUT | request timeout in ms, default `20000` |
 | COOLDOWN_MS | per-user cooldown between links, default `5000` |
