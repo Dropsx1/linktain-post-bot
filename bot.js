@@ -28,7 +28,7 @@ const {
   TUTORIAL_CHAT_ID = '-1003495156964',
   POST_CHAT_ID,
   POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
-  TUTORIAL_LABEL = '\u2139\uFE0F Tutorial',
+  TUTORIAL_LABEL = '\u{1F4DA} Tutorial',
   DISCORD_LABEL = '\u{1F4AC} Discord',
   VIP_LABEL = '\u2B50 VIP \u2B50',
   LINKTAIN_API_URL = 'https://linktain.com/api/v1',

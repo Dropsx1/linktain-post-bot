@@ -14,7 +14,7 @@ Repo: https://github.com/Dropsx1/linktain-post-bot
 🌴 NAME: Vixenp
 📦 Mega: https://lktn.co/qCJChKywd2Bk
 
-[ ℹ️ Tutorial ]  [ 💬 Discord ]
+[ 📚 Tutorial ]  [ 💬 Discord ]
 [     ⭐ VIP ⭐     ]
 ```
 
