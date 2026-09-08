@@ -24,7 +24,7 @@ const {
 const config = {
   tutorialUrl: 'https://t.me/linktaintutorail',
   tutorialChatId: '-1003495156964',
-  vipUrl: 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01',
+  vipUrl: 'https://linktain.com/l/eryswwq',
   discordUrl: 'https://discord.gg/bgnQtMeucK',
   tutorialLabel: 'Tutorial',
   discordLabel: 'Discord',
@@ -127,7 +127,7 @@ test('buttonRows puts Tutorial and Discord side by side with VIP underneath', ()
       { label: 'Tutorial', url: 'https://t.me/linktaintutorail' },
       { label: 'Discord', url: 'https://discord.gg/bgnQtMeucK' },
     ],
-    [{ label: 'VIP', url: 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01' }],
+    [{ label: 'VIP', url: 'https://linktain.com/l/eryswwq' }],
   ]);
 });
 
