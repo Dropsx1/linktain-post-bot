@@ -24,7 +24,7 @@ const {
   TELEGRAM_TOKEN,
   LINKTAIN_API_KEY,
   ADMIN_USER_IDS = '7739393155',
-  VIP_URL = 'https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01',
+  VIP_URL = 'https://linktain.com/l/eryswwq',
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',

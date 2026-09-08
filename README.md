@@ -46,7 +46,7 @@ never lost.
 | Button | Target |
 |---|---|
 | Access Tutorial | https://t.me/linktaintutorail |
-| VIP Access | https://buy.stripe.com/28E5kE0hGc7n4a14Hn5AQ01 |
+| VIP Access | https://linktain.com/l/eryswwq |
 | Discord | https://discord.gg/bgnQtMeucK |
 
 All three are overridable with `TUTORIAL_URL`, `VIP_URL` and `DISCORD_URL`. A button
@@ -75,7 +75,7 @@ npm start
 | LINKTAIN_API_KEY | required, `lt_…` key from Linktain Settings |
 | ADMIN_USER_IDS | comma-separated Telegram user IDs, default `7739393155`. **Blank means anyone can spend your API key** |
 | TUTORIAL_URL | tutorial button target |
-| VIP_URL | Stripe payment link |
+| VIP_URL | VIP button target (Linktain premium link) |
 | DISCORD_URL | Discord invite |
 | TUTORIAL_CHAT_ID | fallback used only when `TUTORIAL_URL` is empty |
 | POST_CHAT_ID | publish targets, comma-separated (`@name`, `-100…`, or `-100…:<topicId>` for a forum topic); empty = preview only |
