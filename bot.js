@@ -28,7 +28,7 @@ const {
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',
-  POST_CHAT_ID = '@Dropsnsfw',
+  POST_CHAT_ID = '-1003900098687',
   POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
   LINK_PREVIEW = 'off',
   TUTORIAL_LABEL = '\u{1F4DA} Tutorial',
