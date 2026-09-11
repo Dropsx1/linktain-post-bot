@@ -25,8 +25,11 @@ The body comes from `POST_TEMPLATE` (`{name}` and `{url}` placeholders). The
 button layout is fixed — Tutorial and Discord share the top row, VIP sits
 full-width underneath — while the labels and URLs are configurable.
 
-With `POST_CHAT_ID` empty the bot previews that exact post back to you in the
-chat instead of publishing, which is a safe way to check formatting.
+`POST_CHAT_ID` defaults to `-1003900098687`, the
+[Dropsnsfw](https://t.me/Dropsnsfw) channel, so posts go there unless you
+override the variable. Setting it to a blank value makes the
+bot preview that exact post back to you in the chat instead of publishing, which
+is a safe way to check formatting.
 
 Photos are re-sent by `file_id`, so the image is never re-uploaded. Captions are
 trimmed to Telegram's 1024-character limit. Albums are not supported — send one
@@ -78,7 +81,7 @@ npm start
 | VIP_URL | VIP button target (Linktain premium link) |
 | DISCORD_URL | Discord invite |
 | TUTORIAL_CHAT_ID | fallback used only when `TUTORIAL_URL` is empty |
-| POST_CHAT_ID | publish targets, comma-separated (`@name`, `-100…`, or `-100…:<topicId>` for a forum topic); empty = preview only |
+| POST_CHAT_ID | publish targets, comma-separated (`@name`, `-100…`, or `-100…:<topicId>` for a forum topic); default `-1003900098687`, blank = preview only |
 | POST_TEMPLATE | post body, `{name}` / `{url}` placeholders |
 | LINK_PREVIEW | `off` (default) suppresses Telegram's preview card on text posts; `on` shows it |
 | TUTORIAL_LABEL / DISCORD_LABEL / VIP_LABEL | button captions |
