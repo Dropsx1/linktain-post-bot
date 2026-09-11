@@ -28,7 +28,7 @@ const {
   DISCORD_URL = 'https://discord.gg/bgnQtMeucK',
   TUTORIAL_URL = 'https://t.me/linktaintutorail',
   TUTORIAL_CHAT_ID = '-1003495156964',
-  POST_CHAT_ID,
+  POST_CHAT_ID = '@Dropsnsfw',
   POST_TEMPLATE = '\u{1F334} NAME: {name}\n\u{1F4E6} Mega: {url}',
   LINK_PREVIEW = 'off',
   TUTORIAL_LABEL = '\u{1F4DA} Tutorial',
@@ -90,7 +90,7 @@ function startKeyboard() {
 
 if (!postTargets.length) {
   console.warn(
-    'POST_CHAT_ID is not set — created links are previewed back in the chat instead of posted to a channel.'
+    'POST_CHAT_ID is blank — created links are previewed back in the chat instead of posted to a channel.'
   );
 } else {
   console.log(`posting to ${postTargets.length} target(s): ${postTargets.map((t) => t.raw).join(', ')}`);
